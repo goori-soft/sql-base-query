@@ -1,2 +1,2 @@
-# sql-base-query
-A simple SQL database query constructor
+# SQL Base Query
+A simple SQL database query constructor.
