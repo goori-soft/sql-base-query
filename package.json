@@ -1,0 +1,30 @@
+{
+  "name": "@goori-soft/sql-base-query",
+  "version": "0.0.1",
+  "description": "A simple SQL database query constructor",
+  "main": "index.js",
+  "scripts": {
+    "test": "node sql-base-query-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goori-soft/sql-base-query.git"
+  },
+  "keywords": [
+    "sql",
+    "database",
+    "constructor",
+    "js",
+    "node"
+  ],
+  "author": "Goori Soft Studio",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/goori-soft/sql-base-query/issues"
+  },
+  "homepage": "https://github.com/goori-soft/sql-base-query#readme",
+  "dependencies": {
+    "@goori-soft/logger": "0.0.3",
+    "mysql": "^2.18.1"
+  }
+}
