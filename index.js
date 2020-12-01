@@ -31,6 +31,10 @@ function getSizeFromField(fieldType){
     return size;
 }
 
+/**
+ * Retorna o tipo de campo declarado na query SQL
+ * @param {Object | String} fieldType 
+ */
 function getTrueTypeFromField(fieldType){
     if(typeof(fieldType) == 'object'){
         if(!fieldType['Type']) return 'VARCHAR';
@@ -348,6 +352,8 @@ class Database {
                     let columnNames = [];
 
                     for(let i in fields){
+
+                        if(!fields[i].name) fields[i].name = i;
 
                         let def = Database.stDefinition(fields[i]);
                         if(def){

@@ -1,5 +1,5 @@
 # SQL Base Query
-A simple SQL database query constructor.
+Um simples contrutor de queries SQL.
 
 # Conexão
 Para se conectar com a base de dados inicie uma instancia com um objeto de configuração.
