@@ -2,7 +2,7 @@
 A simple SQL database query constructor.
 
 # Conexão
-Para se conectar com a base de dados inicie uma instancia com um objeto de configuração.
+To connect to the database, start an instance with a configuration object.
 ```javascript
 const Database = require('@goori-soft/sql-base-query');
 const db = new Database({

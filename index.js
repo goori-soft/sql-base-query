@@ -186,6 +186,7 @@ class Database {
                     let query = 'ALTER TABLE `' + tableName + '` ' + '\n' + definitions.join(', ' + '\n');
                     this.query(query, callback).then(result=>{
                         resolve(result);
+                        return;
                     }).catch(err=>{
                         debug.err(err);
                         reject(err);
@@ -195,6 +196,9 @@ class Database {
                 else{
                     let msg = 'No valid columns were found to be add in ' + tableName.toUpperCase();
                     debug.warn(msg);
+                    if(typeof(callback) == 'function'){
+                        callback(null);
+                    }
                     resolve(null);
                     return;
                 }
@@ -434,6 +438,12 @@ class Database {
             }).catch(err => {
                 return reject(err);
             });
+        });
+    }
+
+    drop = (tableName, callback)=>{
+        return new Promise((resolve, reject)=>{
+            let query = 'DROP TABLE `' + tableName + '`';
         });
     }
 
