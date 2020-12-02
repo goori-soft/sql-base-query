@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/goori-soft/sql-base-query#readme",
   "dependencies": {
-    "@goori-soft/logger": "0.0.3",
+    "@goori-soft/logger": "^0.0.4",
     "mysql": "^2.18.1"
   }
 }
