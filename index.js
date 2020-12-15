@@ -1172,8 +1172,6 @@ class Database {
                 let whereSt = this.mountWhereStatement(where, schema, options);
 
                 let query = 'SELECT * FROM `' + tableName + '` ' + whereSt + orderByString + limitString;
-
-                console.log(query);
                 
                 this.query(query, callback).then( result=>{
                     resolve(result);
