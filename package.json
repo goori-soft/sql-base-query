@@ -1,6 +1,6 @@
 {
   "name": "@goori-soft/sql-base-query",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "A simple SQL database query constructor",
   "main": "index.js",
   "scripts": {
