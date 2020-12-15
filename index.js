@@ -252,9 +252,9 @@ class Database {
                     let msg = 'Could not connect to the database';
                     
                     //Imprimi uma mensagem de erro na tela
-                    debug.debug('Actual state: ' +  this.con.state, {color: 'red'});
-                    debug.debug(msg, {color: 'red'});
-                    
+                    //debug.debug('Actual state: ' +  this.con.state, {color: 'red'});
+                    debug.error(msg, {color: 'red'});
+                    limit
                     this.status = Database.DISCONNECTED;
 
                     //Executa o reject;
@@ -773,6 +773,27 @@ class Database {
     }
 
     /**
+     * Monta um order by statement para complementar uma query em um schema.
+     * NOTA: A string já vem com os Key words 'ORDER BY' no início e 'ASC' ou 'DESC' no final
+     * @param {String} field 
+     * @param {Object} schema 
+     * @param {Object} options 
+     */
+    mountOrderStatement = (field, schema, options)=>{
+        options = options || {};
+        let orderSt = '';
+        field = field.toLowerCase();
+
+        if(typeof(schema.fields[field]) != 'undefined'){
+            if(typeof(options.order) == 'string') options.order = options.order.toUpperCase();
+            let asc = options.order != 'DESC' ? 'ASC' : 'DESC';
+            orderSt = ' ORDER BY `' + field + '` ' + asc;
+        }
+
+        return orderSt;
+    }
+
+    /**
      * Monta um where statement para complementar uma query baseado em um schema. Qualquer valor de where que não esteja em schema será ignorado,
      * exceto se where for uma string, neste caso o retorno será igual a entrada do parâmentro where.
      * NOTA: a string já vem com o keyword WHERE no inicio.
@@ -780,7 +801,8 @@ class Database {
      * @param {Object | String} where 
      * @param {Object} schema 
      */
-    mountWhereStatement = (where, schema)=>{
+    mountWhereStatement = (where, schema, options)=>{
+        options = options || {};
         let whereValues = [];
         if(typeof(where) == 'object'){
             for(let i in where){
@@ -812,8 +834,13 @@ class Database {
         }
 
         let whereSt = '';
+        if(typeof(options.operator) == 'string'){ 
+            options.operator = options.operator.toUpperCase();
+        }
+
+        let whereOperator = options.operator == 'OR' ? 'OR' : 'AND';
         if(whereValues.length > 0){
-            whereSt = ` WHERE ${whereValues.join(' AND ')}`;
+            whereSt = ` WHERE ${whereValues.join(' ' + whereOperator+ ' ')} `;
         }
 
         return whereSt;
@@ -848,6 +875,8 @@ class Database {
                         //Executamos o reject caso a query tenha falahdo
                         reject(err);
                     });
+                }).catch(err=>{
+                    reject(err);
                 });
             }
             else{
@@ -1109,22 +1138,42 @@ class Database {
      * @param {Int} limit
      * @param {Function} callback 
      */
-    where = (tableName, where, limit, callback)=>{
+    where = (tableName, where, options, callback)=>{
         return new Promise((resolve, reject)=>{
             this.getSchema(tableName).then(schema => {
 
-                /**
-                 * Monta uma string (statement where) já com a palavra WHERE inserida no início
-                 * NOTA: qualquer indice de where que não esteja presente no schema será ignorado
-                 */
-                let whereSt = this.mountWhereStatement(where, schema);
+                let limit = null;
+
+                options = options || {};
+                if(typeof(options) != 'object'){
+                    options = {
+                        limit: options
+                    };
+                }
+
+                if(typeof(options.order) == 'string') options.order.toUpperCase();
+                limit = options.limit;
+                
 
                 let limitString = '';
                 if((typeof(limit) == 'number' || !isNaN(limit)) && limit > 0){
                     limitString = ' LIMIT ' + limit;
                 }
 
-                let query = 'SELECT * FROM `' + tableName + '` ' + whereSt + limitString;
+                let orderByString = '';
+                if(typeof(options.orderBy) == 'string'){
+                    orderByString = this.mountOrderStatement(options.orderBy, schema, options);
+                }
+
+                /**
+                 * Monta uma string (statement where) já com a palavra WHERE inserida no início
+                 * NOTA: qualquer indice de where que não esteja presente no schema será ignorado
+                 */
+                let whereSt = this.mountWhereStatement(where, schema, options);
+
+                let query = 'SELECT * FROM `' + tableName + '` ' + whereSt + orderByString + limitString;
+
+                console.log(query);
                 
                 this.query(query, callback).then( result=>{
                     resolve(result);

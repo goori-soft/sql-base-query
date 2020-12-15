@@ -32,6 +32,18 @@ const db = Database.start();
 //     console.log('ops');
 // });
 
-db.select('wp_users', {id: 1}, false, (resp)=>{
+let where = {
+    ID: 44,
+    parent: 44
+}
+
+let options = {
+    operator: 'or',
+    orderBy: 'id',
+    order: 'asc',
+    limit: 1
+}
+
+db.select('wp_users', where, options, (resp)=>{
     console.log(resp);
 });
