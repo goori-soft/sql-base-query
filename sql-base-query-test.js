@@ -33,15 +33,15 @@ const db = Database.start();
 // });
 
 let where = {
-    ID: 44,
-    parent: 44
+    ID: [44, 45, "Lucas", null],
+    user_login: ['Lucas "o\'Kara"', 30, null]
 }
 
 let options = {
-    operator: 'or',
+    operator: 'and',
     orderBy: 'id',
     order: 'asc',
-    limit: 1
+    limit: 10
 }
 
 db.select('wp_users', where, options, (resp)=>{

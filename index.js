@@ -86,6 +86,12 @@ function getTypeFromField(fieldType){
     return 'number';
 }
 
+
+function addSlash(value){
+    let regex = /(?<![\\])"/gm
+    return value.toString().split(regex).join('\\"');
+}
+
 /**
  * A marior parte das funções em Database funciona de modo async
  * Neste caso as funções retornam uma Promisse além de suportar
@@ -511,7 +517,7 @@ class Database {
                                 q = '"'; //o tipo de valor é uma data e o valor é uma string válida
                             }
 
-                            returnValues[i] = q + valuesObject[i] + q;
+                            returnValues[i] = q + addSlash(valuesObject[i]) + q;
                         }
                     }
 
@@ -784,7 +790,13 @@ class Database {
         let orderSt = '';
         field = field.toLowerCase();
 
-        if(typeof(schema.fields[field]) != 'undefined'){
+        let fieldNames = [];
+        for(let i in schema.fields){
+            fieldNames.push(i.toLowerCase());
+        }
+
+        if(fieldNames.includes(field)){
+        //if(typeof(schema.fields[field]) != 'undefined'){
             if(typeof(options.order) == 'string') options.order = options.order.toUpperCase();
             let asc = options.order != 'DESC' ? 'ASC' : 'DESC';
             orderSt = ' ORDER BY `' + field + '` ' + asc;
@@ -809,23 +821,78 @@ class Database {
                 //verificando se este campo existe no schema;
                 if(typeof(schema.fields[i]) != 'undefined'){
 
-                    //verificando se será necessário incluir aspas no valor
                     let q = '';
-                    if(schema.fields[i].type == 'string' && where[i] != null){
-                        q = '"'; //caso o tipo seja string vamos inserir aspas para garantir que o valor seja normalizado
+                    if(where[i] == null){
+                        let st = '`' + i +'` IS NULL ';
+                        whereValues.push(st);
                     }
-                    else if(schema.fields[i].type == 'date' && typeof(where[i]) == 'string' && where[i].toUpperCase() != 'NULL' && where[i].toUpperCase() != 'DEFAULT' && isNaN(where[i])){
-                        q = '"'; //o tipo de valor é uma data e o valor é uma string válida
-                    }
-                    
-                    if(where[i] == null) {
-                        where[i] = 'NULL';
-                        q = '';
-                    }
+                    else if(schema.fields[i].type == 'string'){
+                        q = '"';
+                        let st = '';
 
-                    //cria uma linha de update
-                    let st = '`' + i +'` = ' + q + where[i] + q;
-                    whereValues.push(st);
+                        if(Array.isArray(where[i])){
+                            where[i] = where[i]
+                                .filter(value=>{
+                                    if(value == null) return true;
+                                    if(typeof(value) == 'object' || typeof(where[i]) == 'symbol' || typeof(where[i]) == 'undefined') return false;
+                                    return true;
+                                })
+                                .map(value=>{
+                                    if(value == null) return 'NULL';
+                                    return q + addSlash(value) + q;
+                                })
+                                .join(", ");
+
+                            if(where[i].trim() != ''){
+                                st = '`' + i +'` IN (' + where[i] + ')';
+                                whereValues.push(st);
+                            }
+                        }
+                        else if(typeof(where[i]) != 'object' && typeof(where[i]) != 'symbol' && typeof(where[i]) != 'undefined'){
+                            st = '`' + i +'` = ' + q + addSlash(where[i]) + q;
+                            whereValues.push(st);
+                        }
+                    }
+                    else if(schema.fields[i].type == 'date'){
+                        q = '"';
+                        let st = '';
+                        if(!isNaN(where[i])){
+                            st = '`' + i +'` = ' + where[i];
+                            whereValues.push(st);
+                        }
+                        if(where[i].toUpperCase() == 'NULL'){
+                            st = '`' + i +'` IS NULL ';
+                            whereValues.push(st);
+                        }
+                        else if(where[i].toUpperCase() != 'DEFAULT'){
+                            st = '`' + i +'` = ' + q + addSlash(where[i]) + q;
+                            whereValues.push(st);
+                        }
+                    }
+                    else if(schema.fields[i].type == 'number'){
+                        let st = '';
+                        if(!isNaN(where[i])){
+                            st = '`' + i +'` = ' + where[i];
+                            whereValues.push(st);
+                        }
+                        else if(Array.isArray(where[i])){
+                            where[i] = where[i]
+                                .filter(value=>{
+                                    if(isNaN(value)) return false;
+                                    return true;
+                                })
+                                .map(value=>{
+                                    if(value == null) return "NULL";
+                                    return value;
+                                })
+                                .join(", ");
+                            
+                            if(where[i].trim() != ''){
+                                st = '`' + i +'` IN (' + where[i] + ')';
+                                whereValues.push(st);
+                            }
+                        }
+                    }
                 }
             }
         }
