@@ -32,18 +32,33 @@ const db = Database.start();
 //     console.log('ops');
 // });
 
-let where = {
-    ID: [44, 45, "Lucas", null],
-    user_login: ['Lucas "o\'Kara"', 30, null]
-}
+// let where = {
+//     ID: [44, 45, "Lucas", null],
+//     user_login: ['Lucas "o\'Kara"', 30, null]
+// }
 
-let options = {
-    operator: 'and',
-    orderBy: 'id',
-    order: 'asc',
-    limit: 10
-}
+// let options = {
+//     operator: 'and',
+//     orderBy: 'id',
+//     order: 'asc',
+//     limit: 10
+// }
 
-db.select('wp_users', where, options, (resp)=>{
-    console.log(resp);
-});
+// db.select('wp_users', where, options, (resp)=>{
+//     console.log(resp);
+// });
+
+// let form = {
+//     id: 100,
+//     order: null,
+//     title: 'Exemplo 1',
+//     created_at: "2020-12-18T20:46:14.000Z",
+// }
+
+// db.update('dynamicForm', form, {id: form.id})
+//     .then(result=>{
+//         console.log(result);
+//     })
+//     .catch(err=>{
+//         console.log(err);
+//     })

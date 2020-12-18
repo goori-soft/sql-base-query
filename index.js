@@ -88,6 +88,7 @@ function getTypeFromField(fieldType){
 
 
 function addSlash(value){
+    if(value == null) return value;
     let regex = /(?<![\\])"/gm
     return value.toString().split(regex).join('\\"');
 }
@@ -260,7 +261,6 @@ class Database {
                     //Imprimi uma mensagem de erro na tela
                     //debug.debug('Actual state: ' +  this.con.state, {color: 'red'});
                     debug.error(msg, {color: 'red'});
-                    limit
                     this.status = Database.DISCONNECTED;
 
                     //Executa o reject;
@@ -515,6 +515,7 @@ class Database {
                             }
                             else if(schema.fields[i].type == 'date' && typeof(valuesObject[i]) == 'string' && valuesObject[i].toUpperCase() != 'NULL' && valuesObject[i].toUpperCase() != 'DEFAULT' && isNaN(valuesObject[i])){
                                 q = '"'; //o tipo de valor é uma data e o valor é uma string válida
+                                valuesObject[i] = Database.toDateTime(valuesObject[i]);
                             }
 
                             returnValues[i] = q + addSlash(valuesObject[i]) + q;
@@ -865,7 +866,7 @@ class Database {
                             whereValues.push(st);
                         }
                         else if(where[i].toUpperCase() != 'DEFAULT'){
-                            st = '`' + i +'` = ' + q + addSlash(where[i]) + q;
+                            st = '`' + i +'` = ' + q + addSlash(Database.toDateTime(where[i])) + q;
                             whereValues.push(st);
                         }
                     }
@@ -1152,10 +1153,11 @@ class Database {
                         }
                         else if(schema.fields[i].type == 'date' && typeof(values[i]) == 'string' && values[i].toUpperCase() != 'NULL' && values[i].toUpperCase() != 'DEFAULT' && isNaN(values[i])){
                             q = '"'; //o tipo de valor é uma data e o valor é uma string válida
+                            values[i] = Database.toDateTime(values[i]);
                         }
                         
                         //cria uma linha de update
-                        let st = '`' + i +'` = ' + q + values[i] + q;
+                        let st = '`' + i +'` = ' + q + addSlash(values[i]) + q;
                         updateValues.push(st);
                     }
 
@@ -1437,6 +1439,40 @@ class Database {
         }
 
         return true;
+    }
+
+    /**
+     * Converte um valor para uma string de data
+     * @param {Any} value 
+     */
+    static toDateTime = (value)=>{
+        let date = new Date();
+
+        if(typeof(value) == 'string'){
+            if(value.toUpperCase().trim() == 'NOW' || value.toUpperCase().trim() == 'NOW()'){
+                //retorna a data atual do sistema;
+                //nada faz;
+            }
+            else{
+                date = new Date(value);
+            }
+        }
+        else if(typeof(value) == 'object'){
+            if(value instanceof Date) date = value;
+        }
+        else if(typeof(value) == 'number'){
+            date = new Date(value);
+        }
+
+        let year = date.getFullYear();
+        let month = date.getMonth() + 1;
+        let day = date.getDate();
+        let hour = date.getHours();
+        let minutes = date.getMinutes();
+        let seconds = date.getSeconds();
+        let offset = date.getTimezoneOffset()/60 * 100;
+
+        return `${year}-${month}-${day} ${hour}:${minutes}:${seconds}`;
     }
 
     static types = types;
