@@ -412,7 +412,7 @@ class Database {
      * @param {Int} limit
      * @param {Function} callback 
      */
-    delete = (tableName, where, limit, callback)=>{
+    delete = (tableName, where, options, callback)=>{
         return new Promise((resolve, reject)=>{
             /**
              * getSchema deve retornar o schema da tabela desejada
@@ -421,18 +421,21 @@ class Database {
              */
             this.getSchema(tableName).then((schema)=>{
                 
+                let limit = options.limit;
+
                 /**
                  * Monta uma string (statement where) na qual a palavra WHERE já vem inserida no início
                  * NOTA: qualquer indice de where que não esteja no schema será ignorado
                  */
-                let whereSt = this.mountWhereStatement(where, schema);
-
+                let whereSt = this.mountWhereStatement(where, schema, options);
+                
                 let limitString = '';
                 if(typeof(limit) == 'number' || !isNaN(limit)){
                     limitString = ' LIMIT ' + parseInt(limit);
                 }
 
                 let query = 'DELETE FROM `' + tableName +  '` ' + whereSt + limitString;
+                
                 this.query(query, callback).then(result=>{
                     return resolve(result);
                 }).catch( err => {
@@ -992,11 +995,11 @@ class Database {
      * Alias: where();
      * @param {String} tableName 
      * @param {Object} where 
-     * @param {Int} limit
+     * @param {Object} options
      * @param {Function} callback 
      */
-    select = (tableName, where, limit, callback)=>{
-        return this.where(tableName, where, limit, callback);
+    select = (tableName, where, options, callback)=>{
+        return this.where(tableName, where, options, callback);
     }
 
     /**
