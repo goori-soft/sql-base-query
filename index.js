@@ -413,6 +413,7 @@ class Database {
      * @param {Function} callback 
      */
     delete = (tableName, where, options, callback)=>{
+        options = options || {};
         return new Promise((resolve, reject)=>{
             /**
              * getSchema deve retornar o schema da tabela desejada

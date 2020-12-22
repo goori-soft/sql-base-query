@@ -62,3 +62,11 @@ const db = Database.start();
 //     .catch(err=>{
 //         console.log(err);
 //     })
+
+// db.delete('dynamicForm', {id: 10})
+//     .then((result)=>{
+//         console.log(result);
+//     })
+//     .catch(err=>{
+//         console.log(err);
+//     });
