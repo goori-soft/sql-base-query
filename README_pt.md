@@ -22,6 +22,7 @@ const db = new Database({
 
 # Como utilizar
 Este módulo, apos instanciado, possui funções básicas de consulta e modificação de tabelas em uma base de dados MySQL.
+
 Os principais métodos da instância são:
 | Método | Parâmetros | Descrição |
 | --- | --- | --- |
