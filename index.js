@@ -737,7 +737,7 @@ class Database {
         },
 
         delete: (tableName, where, options)=>{
-            return new Promise(()=>{
+            return new Promise((resolve, reject)=>{
                 this.getSchema(tableName).then((schema)=>{
                     let st = this.mountOptions(options, schema)
 
