@@ -162,35 +162,8 @@ class Database {
      */
     add = (tableName, fields, callback)=>{
         return new Promise((resolve, reject)=>{
-            this.getSchema(tableName).then(schema=>{
-                
-                //remove todos os campos que já estejam declarados
-                for(let i in schema.fields){
-                    let name = i;
-                    if(typeof(fields[i]) != 'undefined'){
-                        if(typeof(fields[i].name) == 'string'){
-                            name = fields[i].name;
-                        }
-                        if(name == i){
-                            delete fields[i];
-                        }
-                    }
-                }
-                
-                let definitions = [];
-                let columnNames = [];
-                for(let i in fields){
-                    let name = typeof(fields[i].name) == 'string'  ? fields[i].name : i;
-                    fields[i].name = name;
-                    let st = Database.stDefinition(fields[i]);
-                    if(st != null && !columnNames.includes(name)){
-                        columnNames.push(name);
-                        definitions.push('ADD COLUMN ' + st);
-                    }
-                }
-
-                if(definitions.length > 0){
-                    let query = 'ALTER TABLE `' + tableName + '` ' + '\n' + definitions.join(', ' + '\n');
+            this.mountQuery.add(tableName, fields)
+                .then(query=>{
                     this.query(query, callback).then(result=>{
                         resolve(result);
                         return;
@@ -198,22 +171,15 @@ class Database {
                         debug.err(err);
                         reject(err);
                     });
-                    return;
-                }
-                else{
-                    let msg = 'No valid columns were found to be add in ' + tableName.toUpperCase();
-                    debug.warn(msg);
+                })
+                .catch(err=>{
+                    debug.warn(err);
                     if(typeof(callback) == 'function'){
                         callback(null);
                     }
                     resolve(null);
                     return;
-                }
-
-            }).catch(err=>{
-                debug.err(err);
-                reject(err);
-            })
+                });
         });
     }
 
@@ -312,23 +278,7 @@ class Database {
     create = (tableName, fields, delta, callback)=>{
         let tab = '    ';
         return new Promise((resolve, reject)=>{
-            //validateName;
-            if(!Database.validadeName(tableName)){
-                let err = 'It\'s not possible to construct a query because table name is not a valid value';
-                debug.debug(err);
-                reject(err);
-                return;
-            }
-
             tableName = tableName.trim();
-
-            //verifica se fields é um objeto
-            if(typeof(fields) != 'object' || fields == null){
-                let err = 'It\'s not possible to construct a query because FIELDS is a empty object';
-                debug.debug(err);
-                reject(err);
-                return;
-            }
 
             this.tableExists(tableName).then((exists)=>{
                 let query = '';
@@ -355,48 +305,21 @@ class Database {
                     }
                 }
                 else{
-                    //tabela não exists, vamos criar uma tabela nova
-                    query = 'CREATE TABLE IF NOT EXISTS `'+tableName+'` (';
-                    let createDefinitionArray = [];
-                    let fieldsCount = 0;
-                    let columnNames = [];
-
-                    for(let i in fields){
-
-                        if(!fields[i].name) fields[i].name = i;
-
-                        let def = Database.stDefinition(fields[i]);
-                        if(def){
-                            let name = i;
-                            if(fields[i].name){
-                                name = fields[i].name;
-                            }
-
-                            if(!columnNames.includes(name)){
-                                columnNames.push(name);
-                                createDefinitionArray.push(def);
-                                fieldsCount++;
-                            }
-                        }
-                    }
-
-                    if(fieldsCount <= 0){
-                        let err = 'It\'s not possible to create a query because no valid fields were found for this table';
-                        debug.debug(err);
-                        reject(err);
-                        return;
-                    }
                     
-                    query += '\n' + tab + createDefinitionArray.join(',' + '\n' + tab) + '\n';
-                    query += ')';
-
-                    this.query(query, callback).then(result=>{
-                        resolve(result);
-                    }).catch(err=>{
-                        reject(err);
-                    });
+                    this.mountQuery.create(tableName, fields)
+                        .then(query=>{
+                            this.query(query, callback).then(result=>{
+                                resolve(result);
+                            }).catch(err=>{
+                                reject(err);
+                            });
+                        })
+                        .catch(err=>{
+                            reject(err);
+                        });
 
                     return;
+
                 }
             }).catch((err)=>{
                 debug.err(err);
@@ -413,47 +336,42 @@ class Database {
      * @param {Function} callback 
      */
     delete = (tableName, where, options, callback)=>{
-        options = options || {};
         return new Promise((resolve, reject)=>{
-            /**
-             * getSchema deve retornar o schema da tabela desejada
-             * Em geral este schema já estará carregado na memória,
-             * por isso esta promisse não dever ter um tempo de retorno longo
-             */
-            this.getSchema(tableName).then((schema)=>{
-                
-                let limit = options.limit;
+            this.mountQuery.delete(tableName, where, options)
+                .then(query=>{
 
-                /**
-                 * Monta uma string (statement where) na qual a palavra WHERE já vem inserida no início
-                 * NOTA: qualquer indice de where que não esteja no schema será ignorado
-                 */
-                let whereSt = this.mountWhereStatement(where, schema, options);
-                
-                let limitString = '';
-                if(typeof(limit) == 'number' || !isNaN(limit)){
-                    limitString = ' LIMIT ' + parseInt(limit);
-                }
+                    this.query(query, callback).then(result=>{
+                        return resolve(result);
+                    }).catch( err => {
+                        return reject(err);
+                    });
 
-                let query = 'DELETE FROM `' + tableName +  '` ' + whereSt + limitString;
-                
-                this.query(query, callback).then(result=>{
-                    return resolve(result);
-                }).catch( err => {
+                    return;
+
+                }).catch(err => {
                     return reject(err);
                 });
-
-                return;
-
-            }).catch(err => {
-                return reject(err);
-            });
         });
     }
 
+    /**
+     * Drops a table
+     * @param {String} tableName 
+     * @param {Function} callback 
+     */
     drop = (tableName, callback)=>{
         return new Promise((resolve, reject)=>{
-            let query = 'DROP TABLE `' + tableName + '`';
+            this.mountQuery.drop(tableName)
+                .then(query=>{
+                    this.query(query, callback).then( result =>{
+                        return resolve(result);
+                    }).catch( err =>{
+                        return reject(err);
+                    });
+                })
+                .catch(err=>{
+                    reject(err);
+                })
         });
     }
 
@@ -463,157 +381,22 @@ class Database {
      * se value for um array de objetos insert tentará inserir vários registros em uma única chamada
      */
     insert = (tableName, values, callback) =>{
-        return new Promise((resolve, reject)=>{
-            //Reservada para guardar as mensagens de erro que por ventura podemos encontrar na montagem da query;
-            const errors = [];
-            
-            //reservado para os grupos de valores
-            //Podemos inserir mais de um registro, basta inserir um array com os objetos de registro em values;
-            let valuesGroup = [];
-            if(values instanceof Array){
-                valuesGroup = values;
-            }
-            else if(typeof(values) == 'object'){
-                valuesGroup.push(values);
-            }
-            else{
-                let msg = 'The insert command failed because the values ​​parameter must be an object or array of objects';
-                reject(msg);
-                return;
-            }
-
-            /**
-             * getSchema deve retornar o schema da tabela desejada
-             * Em geral este schema já estará carregado na memória,
-             * por isso esta promisse não dever ter um tempo de retorno longo
-             */
-            this.getSchema(tableName).then((schema)=>{   
-                /**
-                 * Vamos fazer uma primeira varredura em Values Group.
-                 * Nesta varredura vamos 
-                 */
-                let requiredFields = {};
-
-                valuesGroup = valuesGroup.map((valuesObject) => {
-                    //Caso os valores não tenham sido assinados dentro de um objeto ou array
-                    //Vamos ignorar este valores e retornar null, depois vamos filtrar o array para remover os nulls
-                    if(typeof(valuesObject) != 'object' && typeof(valuesObject) != 'array') {
-                        errors.push('One of the entered values ​​is not a valid object');
-                        return null;
-                    }
-
-                    //Reservado para o valor de retorno deste callback
-                    let returnValues = {};
-                    
-                    //Vamos fazer uma varredura nos valores de uma inserção;
-                    for(let i in valuesObject){
-                        //vamos verificar se o campo existe
-                        if(typeof(schema.fields[i]) != 'undefined'){
-                            //vamos assinar este campo para sabermos que ele está sendo utilizado
-                            requiredFields[i] = schema.fields[i];
-
-                            //vamos normalizar o valor deste campo, incluindo aspas se necessário;
-                            let q = '';
-                            if(schema.fields[i].type == 'string'){
-                                q = '"'; //caso o tipo seja string vamos inserir aspas para garantir que o valor seja normalizado
-                            }
-                            else if(schema.fields[i].type == 'date' && typeof(valuesObject[i]) == 'string' && valuesObject[i].toUpperCase() != 'NULL' && valuesObject[i].toUpperCase() != 'DEFAULT' && isNaN(valuesObject[i])){
-                                q = '"'; //o tipo de valor é uma data e o valor é uma string válida
-                                valuesObject[i] = Database.toDateTime(valuesObject[i]);
-                            }
-
-                            returnValues[i] = q + addSlash(valuesObject[i]) + q;
-                        }
-                    }
-
-                    return returnValues;
+        return new Promise((resolve, reject)=>{               
+            this.mountQuery.insert(tableName, values)
+                .then(query=>{
+                    //Vamos fazer uma chamada para query e repassar o callbak
+                    //Por isso não temos de nos preocupar em resolver este callback
+                    //query dará um jeito nisso por nós;
+                    this.query(query, callback).then( result =>{
+                        return resolve(result);
+                    }).catch( err =>{
+                        return reject(err);
+                    });
                 })
-                //Vamos aplicar um filtro para simplesmente remover os valores nulos
-                .filter((valuesObject)=>{
-                    if(!valuesObject || valuesObject == null) return false;
-                    
-                    let count = 0;
-                    for(let i in valuesObject){
-                        count++;
-                    }
-                    if(count == 0){
-                        errors.push('One of the objects does not have any valid fields.');
-                        return false;
-                    }
-                    return true;
-                })
-                //vamos fazer uma nova varredura para inserir DEFAULT nos campos faltantes
-                .map((valuesObject)=>{
-                    for(let i in requiredFields){
-                        if(typeof(valuesObject[i]) == 'undefined'){
-                            if(requiredFields[i].default == null){
-                                if(requiredFields[i].notNull){
-                                    //Se um campo não tem valor padrão e ao mesmo tempo não pode ser nullo este registro não deve ser inserido;
-                                    errors.push('A record was skipped. The field `' + i + '` has no default value and cannot be null.');
-                                    return null;
-                                }
-                                else{
-                                    valuesObject[i] = 'NULL'
-                                }
-                            }
-                            else{
-                                valuesObject[i] = 'DEFAULT'
-                            }
-                        }
-                    }
-                    return valuesObject;
-                });
-
-                //Teoricamente o objeto valuesGroup deve estar totalmente normalizado aqui.
-                let fields = [];
-                for(let i in requiredFields){
-                    let q = "`";
-                    fields.push(q + requiredFields[i].name + q);
-                }
-
-                let valuesString = valuesGroup.map((valuesObject)=>{
-                    //Algum registro ainda pode ter sido ignorado no último filtro e retornado o valor nullo
-                    if(valuesObject){
-                        let returnString = [];
-                        for(let i in requiredFields){
-                            returnString.push(valuesObject[i]);
-                        }
-                        return "(" + returnString.join(", ") + ")";
-                    }   
-                    return null;
-                })
-                .filter(v => {
-                    if(v) return true;
-                    return false;
-                });
-
-                //Se valuesString não possuir nenhum item, significa dizer que houve erros no momento de montar todas as querys
-                if(valuesString.length <= 0){
-                    reject('One or more errors may have prevented the assembly of the insertion query. ' + errors.join(' '));
-                    return;
-                }
-
-                let query = 'INSERT INTO `'+tableName+'` ('+ fields.join(", ") +') VALUES ' + valuesString.join(", ");
-                
-                
-                //Vamos fazer uma chamada para query e repassar o callbak
-                //Por isso não temos de nos preocupar em resolver este callback
-                //query dará um jeito nisso por nós;
-                this.query(query, callback).then( result =>{
-                    return resolve(result);
-                }).catch( err =>{
+                .catch(err=>{
                     return reject(err);
                 });
-
-                return;
-                //Vamos fazer uma varredura em ValuesGroup para nos sertificarmos de que todos os grupos possuem os mesmos parametros,
-                //do contrário vamos escrever o parametro faltante com o valor padrão
-
-            }).catch((err)=>{
-                let msg = 'The insert failed because the table schema could not be loaded: ' + tableName;
-                debug.error(msg);
-                reject(msg);
-            });
+            return;
         });
     }
 
@@ -811,6 +594,417 @@ class Database {
     }
 
     /**
+     * Retorna um objeto com uma série de strings a serem utilizadas na montagem de uma query
+     * @param {Object} options 
+     * @param {Table Schema} schema 
+     */
+    mountOptions = (options, schema)=>{
+        const st = {
+            limit: '',
+            offset: '',
+            orderBy: '',
+        }
+    
+        options = options || {};
+        if(typeof(options) != 'object'){
+            options = {
+                limit: options
+            };
+        }
+
+        if(typeof(options.order) == 'string') options.order.toUpperCase();
+
+        if((typeof(options.limit) == 'number' || !isNaN(options.limit)) && options.limit > 0){
+            st.limit = ' LIMIT ' + parseInt(options.limit) + ' ';
+        }
+
+        if((typeof(options.offset) == 'number' || !isNaN(options.offset)) && options.offset > 0){
+            st.offset = ' OFFSET ' + parseInt(options.offset) + ' ';
+        }
+
+        if(typeof(options.orderBy) == 'string'){
+            st.orderBy = this.mountOrderStatement(options.orderBy, schema, options);
+        }
+
+        return st;
+
+    }
+
+    /**
+     * Objeto que agrupa uma serie de construtores de query (insert, update, select, etc);
+     */
+    mountQuery = {
+        add: (tableName, fields)=>{
+            return new Promise((resolve, reject)=>{
+                this.getSchema(tableName).then(schema=>{
+                    //remove todos os campos que já estejam declarados
+                    for(let i in schema.fields){
+                        let name = i;
+                        if(typeof(fields[i]) != 'undefined'){
+                            if(typeof(fields[i].name) == 'string'){
+                                name = fields[i].name;
+                            }
+                            if(name == i){
+                                delete fields[i];
+                            }
+                        }
+                    }
+
+                    let definitions = [];
+                    let columnNames = [];
+
+                    for(let i in fields){
+                        let name = typeof(fields[i].name) == 'string' ? fields[i].name : i;
+                        fields[i].name = name;
+                        let st = Database.stDefinition(fields[i]);
+                        if(st != null && !columnNames.includes(name)){
+                            columnNames.push(name);
+                            definitions.push('ADD COLUMN ' + st);
+                        }
+                    }
+
+                    if(definitions.length > 0){
+                        let query = 'ALTER TABLE `' + tableName + '` ' + '\n' + definitions.join(', ' + '\n');
+                        return resolve(query);
+                    }
+                    else{
+                        let msg = 'No valid columns were found to be add in ' + tableName.toUpperCase();
+                        return reject(msg);
+                    }
+
+                })
+                .catch(err=>{
+                    reject(err);
+                })
+            });
+        },
+
+        create: (tableName, fields)=>{
+            return new Promise((resolve, reject)=>{
+                let tab = '    ';
+
+                //validateName;
+                if(!Database.validadeName(tableName)){
+                    let err = 'It\'s not possible to construct a query because table name is not a valid value';
+                    debug.debug(err);
+                    reject(err);
+                    return;
+                }
+
+                tableName = tableName.trim();
+
+                //verifica se fields é um objeto
+                if(typeof(fields) != 'object' || fields == null){
+                    let err = 'It\'s not possible to construct a query because FIELDS is a empty object';
+                    debug.debug(err);
+                    reject(err);
+                    return;
+                }
+
+                //tabela não exists, vamos criar uma tabela nova
+                let query = 'CREATE TABLE IF NOT EXISTS `'+tableName+'` (';
+                let createDefinitionArray = [];
+                let fieldsCount = 0;
+                let columnNames = [];
+
+                for(let i in fields){
+
+                    if(!fields[i].name) fields[i].name = i;
+
+                    let def = Database.stDefinition(fields[i]);
+                    if(def){
+                        let name = fields[i].name;
+                        if(!columnNames.includes(name)){
+                            columnNames.push(name);
+                            createDefinitionArray.push(def);
+                            fieldsCount++;
+                        }
+                    }
+                }
+
+                if(fieldsCount <= 0){
+                    let err = 'It\'s not possible to create a query because no valid fields were found for this table';
+                    debug.debug(err);
+                    reject(err);
+                    return;
+                }
+
+                query += '\n' + tab + createDefinitionArray.join(',' + '\n' + tab) + '\n';
+                query += ')';
+
+                return resolve(query);
+            });
+        },
+
+        delete: (tableName, where, options)=>{
+            return new Promise(()=>{
+                this.getSchema(tableName).then((schema)=>{
+                    let st = this.mountOptions(options, schema)
+
+                    /**
+                     * Monta uma string (statement where) na qual a palavra WHERE já vem inserida no início
+                     * NOTA: qualquer indice de where que não esteja no schema será ignorado
+                     */
+                    let whereSt = this.mountWhereStatement(where, schema, options);
+
+                    let query = 'DELETE FROM `' + tableName +  '` ' + whereSt + st.limit;
+                    
+                    return resolve(query);
+                })
+                .catch(err=>{
+                    reject(err);
+                });
+            });
+        },
+        
+        drop: (tableName)=>{
+            return Promise.resolve('DROP TABLE `' + tableName + '`');
+        },
+
+        insert: (tableName, values)=>{
+            return new Promise((resolve, reject)=>{
+                //Reservada para guardar as mensagens de erro que por ventura podemos encontrar na montagem da query;
+                const errors = [];
+                
+                //reservado para os grupos de valores
+                //Podemos inserir mais de um registro, basta inserir um array com os objetos de registro em values;
+                let valuesGroup = [];
+                if(values instanceof Array){
+                    valuesGroup = values;
+                }
+                else if(typeof(values) == 'object'){
+                    valuesGroup.push(values);
+                }
+                else{
+                    let msg = 'The insert command failed because the values ​​parameter must be an object or an array of objects';
+                    reject(msg);
+                    return;
+                }
+    
+                /**
+                 * getSchema deve retornar o schema da tabela desejada
+                 * Em geral este schema já estará carregado na memória,
+                 * por isso esta promisse não dever ter um tempo de retorno longo
+                 */
+                this.getSchema(tableName).then((schema)=>{   
+                    /**
+                     * Vamos fazer uma primeira varredura em Values Group.
+                     * Nesta varredura vamos 
+                     */
+                    let requiredFields = {};
+    
+                    valuesGroup = valuesGroup.map((valuesObject) => {
+                        //Caso os valores não tenham sido assinados dentro de um objeto ou array
+                        //Vamos ignorar este valores e retornar null, depois vamos filtrar o array para remover os nulls
+                        if(typeof(valuesObject) != 'object' && typeof(valuesObject) != 'array') {
+                            errors.push('One of the entered values ​​is not a valid object');
+                            return null;
+                        }
+    
+                        //Caso o valor seja totalmente null
+                        if(valuesObject === null){
+                            errors.push('One of entered values ​​is null');
+                            return null;
+                        }
+    
+                        //Reservado para o valor de retorno deste callback
+                        let returnValues = {};
+                        
+                        //Vamos fazer uma varredura nos valores de uma inserção;
+                        for(let i in valuesObject){
+                            //vamos verificar se o campo existe
+                            if(typeof(schema.fields[i]) != 'undefined'){
+                                //vamos assinar este campo para sabermos que ele está sendo utilizado
+                                requiredFields[i] = schema.fields[i];
+    
+                                //vamos normalizar o valor deste campo, incluindo aspas se necessário;
+                                let q = '';
+                                if(schema.fields[i].type == 'string' && valuesObject[i] != null){
+                                    q = '"'; //caso o tipo seja string vamos inserir aspas para garantir que o valor seja normalizado
+                                }
+                                else if(valuesObject[i] == null){
+                                    q = '';
+                                    valuesObject[i] = 'NULL';
+                                }
+                                else if(schema.fields[i].type == 'date' && typeof(valuesObject[i]) == 'string' && valuesObject[i].toUpperCase() != 'NULL' && valuesObject[i].toUpperCase() != 'DEFAULT' && isNaN(valuesObject[i])){
+                                    q = '"'; //o tipo de valor é uma data e o valor é uma string válida
+                                    valuesObject[i] = Database.toDateTime(valuesObject[i]);
+                                }
+    
+                                returnValues[i] = q + addSlash(valuesObject[i]) + q;
+                            }
+                        }
+    
+                        return returnValues;
+                    })
+                    //Vamos aplicar um filtro para simplesmente remover os valores nulos
+                    .filter((valuesObject)=>{
+                        if(!valuesObject || valuesObject == null) return false;
+                        
+                        let count = 0;
+                        for(let i in valuesObject){
+                            count++;
+                        }
+                        if(count == 0){
+                            errors.push('One of the objects does not have any valid fields.');
+                            return false;
+                        }
+                        return true;
+                    })
+                    //vamos fazer uma nova varredura para inserir DEFAULT nos campos faltantes
+                    .map((valuesObject)=>{
+                        for(let i in requiredFields){
+                            if(typeof(valuesObject[i]) == 'undefined'){
+                                if(requiredFields[i].default == null){
+                                    if(requiredFields[i].notNull){
+                                        //Se um campo não tem valor padrão e ao mesmo tempo não pode ser nullo este registro não deve ser inserido;
+                                        errors.push('A record was skipped. The field `' + i + '` has no default value and cannot be null.');
+                                        return null;
+                                    }
+                                    else{
+                                        valuesObject[i] = 'NULL'
+                                    }
+                                }
+                                else{
+                                    valuesObject[i] = 'DEFAULT'
+                                }
+                            }
+                        }
+                        return valuesObject;
+                    });
+    
+                    //Teoricamente o objeto valuesGroup deve estar totalmente normalizado aqui.
+                    let fields = [];
+                    for(let i in requiredFields){
+                        let q = "`";
+                        fields.push(q + requiredFields[i].name + q);
+                    }
+    
+                    let valuesString = valuesGroup.map((valuesObject)=>{
+                        //Algum registro ainda pode ter sido ignorado no último filtro e retornado o valor nullo
+                        if(valuesObject){
+                            let returnString = [];
+                            for(let i in requiredFields){
+                                returnString.push(valuesObject[i]);
+                            }
+                            return "(" + returnString.join(", ") + ")";
+                        }   
+                        return null;
+                    })
+                    .filter(v => {
+                        if(v) return true;
+                        return false;
+                    });
+    
+                    //Se valuesString não possuir nenhum item, significa dizer que houve erros no momento de montar todas as querys
+                    if(valuesString.length <= 0){
+                        reject('One or more errors may have prevented the assembly of the insertion query. ' + errors.join(' '));
+                        return;
+                    }
+    
+                    let query = 'INSERT INTO `'+tableName+'` ('+ fields.join(", ") +') VALUES ' + valuesString.join(", ");
+
+                    return resolve(query);
+                })
+                .catch(err=>{
+                    reject(err);
+                });
+            });
+        },
+        
+        select: (tableName, where, options)=>{
+            return new Promise((resolve, reject)=>{
+                this.getSchema(tableName).then(schema => {
+
+                    let st = this.mountOptions(options, schema);
+    
+                    /**
+                     * Monta uma string (statement where) já com a palavra WHERE inserida no início
+                     * NOTA: qualquer indice de where que não esteja presente no schema será ignorado
+                     */
+                    let whereSt = this.mountWhereStatement(where, schema, options);
+    
+                    let query = 'SELECT * FROM `' + tableName + '` ' + whereSt + st.orderBy + st.limit + st.offset;
+                    return resolve(query);
+                })
+                .catch(err=>{
+                    return reject(err);
+                });
+            });
+        },
+
+        update: (tableName, values, where, options)=>{
+            return new Promise((resolve, reject)=>{
+            
+                //Se os valores não forem um objeto válido o update deve falhar 
+                if(typeof(values) != 'object' || values == null){
+                    let msg = 'To use UPDATE the values ​​must be an object with an index value, which is not the case.';
+                    return reject(msg);
+                }
+
+                /**
+                 * getSchema deve retornar o schema da tabela desejada
+                 * Em geral este schema já estará carregado na memória,
+                 * por isso esta promisse não dever ter um tempo de retorno longo
+                 */
+                this.getSchema(tableName).then((schema)=>{
+                    let st = this.mountOptions(options, schema);
+                    /**
+                     * Vamos fazer uma varredura nos valores e verificar se seus indices estão no schema da tabela
+                     * indices que não estiverem no schema serão simplesmente ignorados
+                     */
+                    let updateValues = [];
+                    for(let i in values){
+    
+                        //verificando se este campo existe no schema;
+                        if(typeof(schema.fields[i]) != 'undefined'){
+    
+                            //verificando se será necessário incluir aspas no valor
+                            let q = '';
+                            if(schema.fields[i].type == 'string' && values[i] != null){
+                                q = '"'; //caso o tipo seja string vamos inserir aspas para garantir que o valor seja normalizado
+                            }
+                            else if(values[i] == null){
+                                q = '';
+                                values[i] = 'NULL';
+                            }
+                            else if(schema.fields[i].type == 'date' && typeof(values[i]) == 'string' && values[i].toUpperCase() != 'NULL' && values[i].toUpperCase() != 'DEFAULT' && isNaN(values[i])){
+                                q = '"'; //o tipo de valor é uma data e o valor é uma string válida
+                                values[i] = Database.toDateTime(values[i]);
+                            }
+                            
+                            //cria uma linha de update
+                            let st = '`' + i +'` = ' + q + addSlash(values[i]) + q;
+                            updateValues.push(st);
+                        }
+                    }
+    
+                    if(updateValues.length <= 0){
+                        let msg = 'UPDATE failed because the VALUES parameter does not contain valid fields.';
+                        debug.err(msg);
+                        return reject(msg);
+                    }
+    
+                    let updateSt = ` SET ${updateValues.join(', ')}`;
+                    
+                    /**
+                     * Monta uma string (statement where) baseado nos parametros passados anteriormente;
+                     * Este método já inclui a palavra WHERE no início da string
+                     */
+                    let whereSt = this.mountWhereStatement(where, schema, options);
+    
+                    let query = 'UPDATE `' + tableName + '` ' + updateSt + whereSt + st.limit;
+                    
+                    return resolve(query);
+                })
+                .catch(err=>{
+                    rejetc(err);
+                });
+            });
+        }
+    }
+
+    /**
      * Monta um where statement para complementar uma query baseado em um schema. Qualquer valor de where que não esteja em schema será ignorado,
      * exceto se where for uma string, neste caso o retorno será igual a entrada do parâmentro where.
      * NOTA: a string já vem com o keyword WHERE no inicio.
@@ -936,10 +1130,10 @@ class Database {
 
                     //Note que esta é uma chamada recursiva e estamos repassando o callback
                     //por isso ele será resolvido nesta nova chamada e não deve ser resolvido novamente aqui dentro.
-                    this.query(query, callback).then((result, fields)=>{
+                    this.query(query, callback).then((result)=>{
                         //Executa o resolver caso a query tenha sido realizada com sucesso;
                         //repassando os paramentros recebidos desta nova query
-                        resolve(result, fields);
+                        resolve(result);
 
                         //Neste caso não precisamos executar o callbak pois ele já será executado pela nova chamada;
                         //Do contrário fariamos uma chamada dupla de callback, uma aqui e outra no sucesso da query;
@@ -958,7 +1152,7 @@ class Database {
                         if(typeof(callback) == 'function'){
                             callback(result, fields);
                         }
-                        resolve(result, fields);
+                        resolve(result);
                     }
                     else{
                         //Algum erro ocorreu vamos ver o que é;
@@ -972,7 +1166,7 @@ class Database {
     /**
      * Limpa o schema da memória forçando o carregamento de um novo schema quando necessário
      */
-    renodeetSchema = ()=>{
+    resetSchema = ()=>{
         this.schema = {};
         return true;
     }
@@ -983,7 +1177,7 @@ class Database {
      * @param {String | Object | Any} term 
      * @param {Function} callback 
      */
-    search = (tableName, term, callback)=>{
+    search = (tableName, term, options, callback)=>{
         /*******************************/
 
 
@@ -1124,83 +1318,27 @@ class Database {
      * @param {Object} where 
      * @param {Function} callback 
      */
-    update = (tableName, values, where, callback)=>{
+    update = (tableName, values, where, options, callback)=>{
         return new Promise((resolve, reject)=>{
             
-            //Se os valores não forem um objeto válido o update deve falhar 
-            if(typeof(values) != 'object' || values == null){
-                let msg = 'To use UPDATE the values ​​must be an object with an index value, which is not the case.';
-                return reject(msg);
-            }
-
-            /**
-             * getSchema deve retornar o schema da tabela desejada
-             * Em geral este schema já estará carregado na memória,
-             * por isso esta promisse não dever ter um tempo de retorno longo
-             */
-            this.getSchema(tableName).then((schema)=>{
+            this.mountQuery.update(tableName, values, where, options)
+                .then(query=>{
                 
-                /**
-                 * Vamos fazer uma varredura nos valores e verificar se seus indices estão no schema da tabela
-                 * indices que não estiverem no schema serão simplesmente ignorados
-                 */
-                let updateValues = [];
-                for(let i in values){
+                    //Vamos fazer uma chamada para query e repassar o callbak
+                    //Por isso não temos de nos preocupar em resolver este callback
+                    //query dará um jeito nisso por nós;
+                    this.query(query, callback).then( result =>{
+                        return resolve(result);
+                    }).catch(err=>{
+                        debug.err(err);
+                        return reject(err);
+                    });
 
-                    //verificando se este campo existe no schema;
-                    if(typeof(schema.fields[i]) != 'undefined'){
-
-                        //verificando se será necessário incluir aspas no valor
-                        let q = '';
-                        if(schema.fields[i].type == 'string'){
-                            q = '"'; //caso o tipo seja string vamos inserir aspas para garantir que o valor seja normalizado
-                        }
-                        else if(schema.fields[i].type == 'date' && typeof(values[i]) == 'string' && values[i].toUpperCase() != 'NULL' && values[i].toUpperCase() != 'DEFAULT' && isNaN(values[i])){
-                            q = '"'; //o tipo de valor é uma data e o valor é uma string válida
-                            values[i] = Database.toDateTime(values[i]);
-                        }
-                        
-                        //cria uma linha de update
-                        let st = '`' + i +'` = ' + q + addSlash(values[i]) + q;
-                        updateValues.push(st);
-                    }
-
-                }
-
-                if(updateValues.length <= 0){
-                    let msg = 'UPDATE failed because the VALUES parameter does not contain valid fields.';
-                    debug.err(msg);
-                    return reject(msg);
-                }
-
-                let updateSt = ` SET ${updateValues.join(', ')}`;
-                
-                /**
-                 * Monta uma string (statement where) baseado nos parametros passados anteriormente;
-                 * Este método já inclui a palavra WHERE no início da string
-                 */
-                let whereSt = this.mountWhereStatement(where, schema);
-
-                let query = 'UPDATE `' + tableName + '` ' + updateSt + whereSt;
-                
-                //Vamos fazer uma chamada para query e repassar o callbak
-                //Por isso não temos de nos preocupar em resolver este callback
-                //query dará um jeito nisso por nós;
-                this.query(query, callback).then( result =>{
-                    return resolve(result);
+                    return;
                 }).catch(err=>{
                     debug.err(err);
-                    return reject(err);
+                    reject(err);
                 });
-
-                return;
-                //Vamos fazer uma varredura em ValuesGroup para nos sertificarmos de que todos os grupos possuem os mesmos parametros,
-                //do contrário vamos escrever o parametro faltante com o valor padrão
-            }).catch(err=>{
-                let msg = 'Update has failed because the table schema could not be loaded: ' + tableName;
-                debug.err(msg);
-                reject(msg);
-            });
         });
     }
 
@@ -1213,50 +1351,18 @@ class Database {
      */
     where = (tableName, where, options, callback)=>{
         return new Promise((resolve, reject)=>{
-            this.getSchema(tableName).then(schema => {
-
-                let limit = null;
-
-                options = options || {};
-                if(typeof(options) != 'object'){
-                    options = {
-                        limit: options
-                    };
-                }
-
-                if(typeof(options.order) == 'string') options.order.toUpperCase();
-                limit = options.limit;
-                
-
-                let limitString = '';
-                if((typeof(limit) == 'number' || !isNaN(limit)) && limit > 0){
-                    limitString = ' LIMIT ' + limit;
-                }
-
-                let orderByString = '';
-                if(typeof(options.orderBy) == 'string'){
-                    orderByString = this.mountOrderStatement(options.orderBy, schema, options);
-                }
-
-                /**
-                 * Monta uma string (statement where) já com a palavra WHERE inserida no início
-                 * NOTA: qualquer indice de where que não esteja presente no schema será ignorado
-                 */
-                let whereSt = this.mountWhereStatement(where, schema, options);
-
-                let query = 'SELECT * FROM `' + tableName + '` ' + whereSt + orderByString + limitString;
-                
-                this.query(query, callback).then( result=>{
-                    resolve(result);
-                }).catch(err=>{
+            this.mountQuery.select(tableName, where, options)
+                .then(query=>{
+                    this.query(query, callback).then( result=>{
+                        resolve(result);
+                    }).catch(err=>{
+                        debug.err(err);
+                        reject(err);
+                    });
+                }).catch((err)=>{
                     debug.err(err);
                     reject(err);
                 });
-
-            }).catch((err)=>{
-                debug.err(err);
-                reject(err);
-            });
         });
     }
 
