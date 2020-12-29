@@ -2,6 +2,7 @@ const mysql = require('mysql');
 const debug = require('@goori-soft/logger');
 const defaultConfig = require('./lib/config.js');
 const types = require('./lib/types');
+const clone = require('./lib/clone');
 
 debug.setConfig({
     debugForFile: true,
@@ -635,6 +636,8 @@ class Database {
      */
     mountQuery = {
         add: (tableName, fields)=>{
+            fields = clone(fields);
+
             return new Promise((resolve, reject)=>{
                 this.getSchema(tableName).then(schema=>{
                     //remove todos os campos que já estejam declarados
@@ -680,6 +683,8 @@ class Database {
         },
 
         create: (tableName, fields)=>{
+            fields = clone(fields);
+            
             return new Promise((resolve, reject)=>{
                 let tab = '    ';
 
@@ -762,6 +767,8 @@ class Database {
         },
 
         insert: (tableName, values)=>{
+            values = clone(values);
+
             return new Promise((resolve, reject)=>{
                 //Reservada para guardar as mensagens de erro que por ventura podemos encontrar na montagem da query;
                 const errors = [];
@@ -934,6 +941,8 @@ class Database {
         },
 
         update: (tableName, values, where, options)=>{
+            values = clone(values);
+
             return new Promise((resolve, reject)=>{
             
                 //Se os valores não forem um objeto válido o update deve falhar 
