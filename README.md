@@ -1,4 +1,4 @@
-# SQL Base Query
+# SQL Base Query (BETA)
 A simple SQL database query constructor.
 
 # Installation
