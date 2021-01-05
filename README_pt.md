@@ -74,3 +74,79 @@ db.mountQuery.insert(tableName, insert)
         console.log(err);
     })
 ```
+
+# Inputters e Resolvers
+Inputters e Resolvers são funções que tratam os valores de entrada ou saída das consultas SQL quando nos utilizamos dos métods insert, update ou select (where).
+
+É possível definir um inputter ou resolver para cada campo de cada tabela manipulando os dados antes que sejam inseridos ou retornados em uma consulta. O exemplo a seguir mostra um inputter que converte toda entrada de formato objeto para uma string, tornando mais simples o processo de armazenamento de um dado complexo.
+
+Suponhamos uma seguinte tabela `clients` em nossa base de dados:
+| Campo | Tipo |
+| --- | --- |
+| ID | number |
+| name | String |
+| options | String |
+| width | number |
+| hight | number |
+
+Neste caso queremos armazenar no campo `options` um objeto convertido em uma string (stringfy). Para simplificar o processo de escrita e centralizar o método de validação de dado de entrada podemos criar um inputter para este campo.
+
+```javascript
+db.setInputter("clients", "options", (value) => {
+    if(!value) return null;
+    let input = null;
+    try{
+        input = JSON.stringfy(value);
+    }
+    catch{
+        //nothing to do here!
+    }
+    return input
+});
+```
+Agora podemos fazer uma entrada direta de um objeto tendo a certeza de que uma regra de validação será aplicada a ele sempre que os métodos insert ou update forem chamados.
+```javascript
+let values = {
+    name: "Maria",
+    options: {color: "blue", size: "small"},
+    width: 2,
+    height: 3
+}
+
+db.insert("clients", values);
+```
+Neste caso seria ideal também criar um resolver para que o valor extraido seja automaticamente convertido para um objeto.
+```javascript
+db.setResolver("clients", "options", (value)=>{
+    if(value == "null" || value == "NULL") return null;
+    if(!value) return null;
+    let resolve = null;
+    try{
+        resolve = JSON.parse(value);
+    }
+    catch{
+        //nothing to do here!
+    }
+    return resolve;
+});
+
+db.select("clients", {name: "Maria"})
+    .then((result)=>{
+        console.log(result);
+    });
+```
+Alem disso é possível criar um resolver para retornar um campo adicional calculado a partir de outrs dados da mesma linha de consulta.
+```javascript
+db.setResolver("clients", "area", (value, row)=>{
+    //value is undefined
+    //because area is not a valid column
+    return row.width * row.height;
+});
+
+db.select("clients", {name: "Maria"})
+    .then((result)=>{
+        let area = result[0].area;
+        console.log(area); //shold be 6 at this point
+    })
+```
+> Nota: nesta versão resolvers e inputters não funcionam de modo assincrono, ou seja, não podem retornar uma promisse. Esta funcionalidade deve ser aplicada em breve.

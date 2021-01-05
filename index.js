@@ -120,6 +120,8 @@ class Database {
         maxCacheMemory: 20* 1000 * 1024, //20MB,
 
         unsafe: false,
+
+        //inputterInWhereStatement: true,
     };
 
     status = 0; //indica que a base de dados está desconectada
@@ -127,6 +129,9 @@ class Database {
 
     tables = [];
     schema = {};
+
+    inputters = {};
+    resolvers = {};
 
     //Armazena a promisse que esta a tentar uma conexão;
     currentConnectionAttempt = new Promise(()=>{});
@@ -817,6 +822,9 @@ class Database {
                         //Reservado para o valor de retorno deste callback
                         let returnValues = {};
                         
+                        //Vamos processar os inputters para esta tabela e estes valores de inserção;
+                        valuesObject = this.processInputters(tableName, valuesObject);
+
                         //Vamos fazer uma varredura nos valores de uma inserção;
                         for(let i in valuesObject){
                             //vamos verificar se o campo existe
@@ -962,6 +970,10 @@ class Database {
                      * Vamos fazer uma varredura nos valores e verificar se seus indices estão no schema da tabela
                      * indices que não estiverem no schema serão simplesmente ignorados
                      */
+
+                    //Vamos processar os inputters para esta tabela e estes valores de inserção;
+                    values = this.processInputters(tableName, values);
+                    
                     let updateValues = [];
                     for(let i in values){
     
@@ -1022,6 +1034,8 @@ class Database {
      * @param {Object} schema 
      */
     mountWhereStatement = (where, schema, options)=>{
+        let tableName = schema.table;
+
         options = options || {};
         let whereValues = [];
         if(typeof(where) == 'object'){
@@ -1122,6 +1136,56 @@ class Database {
     }
 
     /**
+     * Processa um objeto de valores sobre os inputters definidos
+     * @param {String} tableName 
+     * @param {Object} values 
+     */
+    processInputters = (tableName, values) => {
+        tableName = tableName.toLocaleLowerCase();
+        let originalValues = values;
+        values = clone(values);
+        if(!this.inputters[tableName]) return values;
+
+        let inputters = this.inputters[tableName];
+
+        for(let i in values){
+            let fieldName = i.toLocaleLowerCase();
+            if(typeof(inputters[fieldName]) == 'function'){
+                values[i] = inputters[fieldName](values[i], clone(originalValues));
+            }
+        }
+
+        return values;
+    }
+
+    processResolvers = (tableName, values) => {
+        //reduzir o nome dos campos para minusculo
+        let fieldNamesNorm = {};
+        for(let i in values){
+            let fieldName = i.toLocaleLowerCase();
+            fieldNamesNorm[fieldName] = i;
+        }
+
+        tableName = tableName.toLowerCase();
+        let originalValues = clone(values);
+        values = clone(values);
+        if(!this.resolvers[tableName]) return values;
+
+        let resolvers = this.resolvers[tableName];
+
+        for(let i in resolvers){
+            let fieldName = fieldNamesNorm[i];
+            if(!fieldName) fieldName = i;
+            let func = resolvers[i];
+            if(typeof(func) == 'function'){
+                values[fieldName] = func(originalValues[fieldName], clone(originalValues));
+            }
+        }
+
+        return values;
+    }
+
+    /**
      * Executa uma query SQL, essa função também faz uma conexão automática com a base de dados
      * caso a conexão tenha sido perdida pelo tempo de espera.
      * 
@@ -1142,6 +1206,7 @@ class Database {
                     this.query(query, callback).then((result)=>{
                         //Executa o resolver caso a query tenha sido realizada com sucesso;
                         //repassando os paramentros recebidos desta nova query
+
                         resolve(result);
 
                         //Neste caso não precisamos executar o callbak pois ele já será executado pela nova chamada;
@@ -1161,6 +1226,7 @@ class Database {
                         if(typeof(callback) == 'function'){
                             callback(result, fields);
                         }
+
                         resolve(result);
                     }
                     else{
@@ -1259,6 +1325,51 @@ class Database {
                 debug.err(err.code);
             }
         });
+    }
+
+    /**
+     * Cria um inputter para um determinado campo de uma tabela. O inputter é uma função evocada antes que uma atualização aconteça na tabela.
+     * Nota: O inputter pode alterar o valor de um campo antes que ele seja adicionado. o inputter recebe dois parametros de entrada (value, row).
+     * @param {String} tableName 
+     * @param {String} fieldName 
+     * @param {Function} inputter 
+     */
+    setInputter = (tableName, fieldName, inputter)=>{
+        tableName = tableName.toLocaleLowerCase();
+        fieldName = fieldName.toLocaleLowerCase();
+
+        if(typeof(inputter) == 'function'){
+            if(!this.inputters[tableName]){
+                this.inputters[tableName] = {};
+            }
+
+            this.inputters[tableName][fieldName] = inputter;
+        }
+
+        return this;
+    }
+
+    /**
+     * Cria um resolver para um determinado campo de uma tabela. Este resolver é responsável por processar a saída
+     * Nota: A função resolver recebe dois parametros de entrada (value, row), o valor do campo e todos os valores da linha que foram carregados
+     * 
+     * @param {String} tableName 
+     * @param {String} fieldName 
+     * @param {Function} resolver 
+     */
+    setResolver = (tableName, fieldName, resolver)=>{
+        tableName = tableName.toLocaleLowerCase();
+        fieldName = fieldName.toLocaleLowerCase();
+ 
+        if(typeof(resolver) == 'function'){
+            if(!this.resolvers[tableName]){
+                this.resolvers[tableName] = {};
+            }
+
+            this.resolvers[tableName][fieldName] = resolver;
+        }
+ 
+        return this;
     }
 
     /**
@@ -1363,7 +1474,16 @@ class Database {
             this.mountQuery.select(tableName, where, options)
                 .then(query=>{
                     this.query(query, callback).then( result=>{
-                        resolve(result);
+
+                        //cada linha retornada deve ser processada pelos resolvers
+                        let finalResult = [];
+                        for(let index in result){
+                            let row = result[index];
+                            row = this.processResolvers(tableName, row);
+                            finalResult.push(row);
+                        }
+                        return resolve(finalResult);
+                        //resolve(result);
                     }).catch(err=>{
                         debug.err(err);
                         reject(err);
