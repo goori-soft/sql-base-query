@@ -25,6 +25,7 @@ This module, after being instantiated, has basic functions for querying and modi
 The main methods of the instance are:
 | Method | Parameters | Description |
 | --- | --- | --- |
+| count | tableName: String, where: Object, options: Object, callback: Function | Counts the number of rows in a given table. Returns an INT value. |
 | create | tableName: String, fields: Object, delta: Boolean, callback: Function | Create a new table in the database. If delta is true and the table already exists, defined fields that do not yet exist will be added to the table. |
 | add | tableName: String, fields: Object, callback: Function | Adds new fields to an existing table. |
 | select | tableName: String, where: Object, options: Object, callback: Function | Executes a select query in the database on a given table. |

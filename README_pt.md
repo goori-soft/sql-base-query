@@ -26,6 +26,7 @@ Este módulo, apos instanciado, possui funções básicas de consulta e modifica
 Os principais métodos da instância são:
 | Método | Parâmetros | Descrição |
 | --- | --- | --- |
+| count | tableName: String, where: Object, options: Object, callback: Function | Conta o número de registro em uma determinada tabela. Retorna um INT |
 | create | tableName: String, fields: Object, delta: Boolean, callback: Function | Cria uma nova tabela na base de dados. Caso delta seja true e a tabela já exista, os campos definidos que ainda não existem serão adicionados à tabela. |
 | add | tableName: String, fields: Object, callback: Function | Adiciona novos campos a uma tabela já existente. |
 | select | tableName: String, where: Object, options: Object, callback: Function | Executa uma query do tipo select na base de dados sobre uma tabela determinada. |

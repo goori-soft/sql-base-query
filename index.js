@@ -262,6 +262,40 @@ class Database {
     }
 
     /**
+     * Conta o número de registros em uma determinada tabela
+     * @param {String} tableName 
+     * @param {Object} where 
+     * @param {Object} options 
+     * @param {Function} callback 
+     */
+    count = (tableName, where, options, callback)=>{
+        return new Promise((resolve, reject)=>{
+            this.mountQuery.count(tableName, where, options)
+            .then(query=>{
+                this.query(query)
+                    .then(result=>{
+                        let value = 0;
+                        if(result.length >= 1){
+                            value = parseInt(result[0]['_total']);
+                        }
+
+                        resolve(value);
+
+                        if(typeof(callback) == 'function'){
+                            callback(value);
+                        }
+                    })
+                    .catch(err=>{
+                        reject(err);
+                    });
+            })
+            .catch(err=>{
+                return reject(err)
+            });
+        });   
+    }
+
+    /**
      * Cria uma nova tabela na base de dados, se delta for verdadeiro e a tabela já existir os campos inexistentes serão criados
      * Campos já existentes serão ignorados
      * @param {String} tableName 
@@ -684,6 +718,25 @@ class Database {
                 .catch(err=>{
                     reject(err);
                 })
+            });
+        },
+
+        count: (tableName, where, options)=>{
+            return new Promise((resolve, reject)=>{
+                this.getSchema(tableName).then(schema => {
+    
+                    /**
+                     * Monta uma string (statement where) já com a palavra WHERE inserida no início
+                     * NOTA: qualquer indice de where que não esteja presente no schema será ignorado
+                     */
+                    let whereSt = this.mountWhereStatement(where, schema, options);
+    
+                    let query = 'SELECT COUNT(*) as `_total` FROM `' + tableName + '` ' + whereSt;
+                    return resolve(query);
+                })
+                .catch(err=>{
+                    return reject(err);
+                });
             });
         },
 
