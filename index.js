@@ -319,9 +319,9 @@ class Database {
         let tab = '    ';
         return new Promise((resolve, reject)=>{
             tableName = tableName.trim();
-
             this.tableExists(tableName).then((exists)=>{
                 let query = '';
+                
                 if(exists){
                     //tabela já existe, vamos incluir os novos campos
                     if(delta){
@@ -345,7 +345,6 @@ class Database {
                     }
                 }
                 else{
-                    
                     this.mountQuery.create(tableName, fields)
                         .then(query=>{
                             this.query(query, callback).then(result=>{
@@ -543,7 +542,6 @@ class Database {
      */
     getTables = (hidden, force, callback)=>{ 
         return new Promise((resolve, reject)=>{
-            
             //Verificando se podemos retornar o que está na memória
             if(this.tables.length > 0 && !force){
                 //As tabelas já foram carregadas anteriormente e force é falso
@@ -1254,7 +1252,6 @@ class Database {
                 debug.blank();
                 debug.warn('Trying to run a query, but the system is disconnected from the database. Starting a forced connection...', {color: 'yellow'});
                 this.connect(()=>{
-
                     //Note que esta é uma chamada recursiva e estamos repassando o callback
                     //por isso ele será resolvido nesta nova chamada e não deve ser resolvido novamente aqui dentro.
                     this.query(query, callback).then((result)=>{

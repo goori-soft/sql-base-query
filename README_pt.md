@@ -40,8 +40,8 @@ Os principais métodos da instância são:
 const fields = {
     id: {type: 'number', primary: true},
     name: {type: 'string', size: 100},
-    email: {type: 'string'}
-    memo: {type: 'text'}
+    email: {type: 'string'},
+    memo: {type: 'text'},
     age: {type: 'number'}
 }
 
