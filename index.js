@@ -771,16 +771,17 @@ class Database {
                 let columnNames = [];
 
                 for(let i in fields){
+                    if (typeof(fields[i]) == 'object'){
+                        if(!fields[i].name) fields[i].name = i;
 
-                    if(!fields[i].name) fields[i].name = i;
-
-                    let def = Database.stDefinition(fields[i]);
-                    if(def){
-                        let name = fields[i].name;
-                        if(!columnNames.includes(name)){
-                            columnNames.push(name);
-                            createDefinitionArray.push(def);
-                            fieldsCount++;
+                        let def = Database.stDefinition(fields[i]);
+                        if(def){
+                            let name = fields[i].name;
+                            if(!columnNames.includes(name)){
+                                columnNames.push(name);
+                                createDefinitionArray.push(def);
+                                fieldsCount++;
+                            }
                         }
                     }
                 }
