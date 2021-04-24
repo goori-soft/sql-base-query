@@ -694,12 +694,14 @@ class Database {
                     let columnNames = [];
 
                     for(let i in fields){
-                        let name = typeof(fields[i].name) == 'string' ? fields[i].name : i;
-                        fields[i].name = name;
-                        let st = Database.stDefinition(fields[i]);
-                        if(st != null && !columnNames.includes(name)){
-                            columnNames.push(name);
-                            definitions.push('ADD COLUMN ' + st);
+                        if(typeof(fields[i]) == 'object'){
+                            let name = typeof(fields[i].name) == 'string' ? fields[i].name : i;
+                            fields[i].name = name;
+                            let st = Database.stDefinition(fields[i]);
+                            if(st != null && !columnNames.includes(name)){
+                                columnNames.push(name);
+                                definitions.push('ADD COLUMN ' + st);
+                            }
                         }
                     }
 
